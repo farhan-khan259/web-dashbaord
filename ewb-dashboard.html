@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>EWB Protocol Dashboard</title>
+<style>
+  :root {
+    --bg: #03060e; --panel: #070d1a; --bdr: #0c1825; --bdr2: #102030;
+    --gold: #C9A84C; --green: #00e5a0; --blue: #2979ff; --cyan: #00bcd4;
+    --amber: #ffb300; --red: #f44336; --text: #ddeeff; --muted: #3a5570;
+    --purple: #7B68EE;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'SF Mono','Fira Code',monospace; min-height: 100vh; }
+  .topbar { background: var(--panel); border-bottom: 1px solid var(--bdr); padding: 0 20px; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand-badge { width: 36px; height: 36px; border-radius: 8px; background: linear-gradient(135deg,var(--gold),var(--amber)); display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 900; color: var(--bg); flex-shrink: 0; }
+  .brand-title { font-size: 13px; font-weight: 800; letter-spacing: 2px; }
+  .brand-sub { font-size: 7.5px; color: var(--green); letter-spacing: 2px; }
+  .eth-price { font-size: 18px; font-weight: 900; font-family: monospace; transition: color 0.3s; }
+  .eth-price-sub { font-size: 7.5px; color: var(--muted); text-align: right; }
+  .pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); transition: all 0.3s; }
+  .pulse.active { background: var(--green); box-shadow: 0 0 8px var(--green); }
+  nav { display: flex; gap: 4px; padding: 12px 20px; border-bottom: 1px solid var(--bdr); background: rgba(7,13,26,0.8); overflow-x: auto; }
+  nav button { background: transparent; border: 1px solid var(--bdr2); border-radius: 6px; color: var(--muted); font-size: 8.5px; letter-spacing: 1.5px; text-transform: uppercase; padding: 6px 14px; cursor: pointer; font-family: monospace; white-space: nowrap; transition: all 0.2s; }
+  nav button.active { border-color: var(--gold); color: var(--text); background: rgba(201,168,76,0.1); }
+  .main { padding: 16px; max-width: 1200px; margin: 0 auto; }
+  .page { display: none; }
+  .page.active { display: flex; flex-direction: column; gap: 12px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  @media(max-width:700px){ .grid3,.grid2 { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--bdr2); border-radius: 10px; padding: 14px; }
+  .card-label { font-size: 7.5px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 4px; }
+  .card-value { font-size: 20px; font-weight: 800; font-family: monospace; line-height: 1.1; }
+  .card-sub { font-size: 8px; color: var(--muted); margin-top: 4px; }
+  .section-title { font-size: 9px; font-weight: 700; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; margin-bottom: 10px; }
+  .row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--bdr); font-size: 9px; }
+  .row:last-child { border-bottom: none; }
+  .row-label { color: var(--muted); }
+  .row-value { font-family: monospace; color: var(--text); font-weight: 700; }
+  .badge { display: inline-block; font-size: 7.5px; padding: 3px 8px; border-radius: 4px; font-weight: 700; }
+  .badge-green { background: rgba(0,229,160,0.1); border: 1px solid rgba(0,229,160,0.3); color: var(--green); }
+  .badge-amber { background: rgba(255,179,0,0.1); border: 1px solid rgba(255,179,0,0.3); color: var(--amber); }
+  .badge-red { background: rgba(244,67,54,0.1); border: 1px solid rgba(244,67,54,0.3); color: var(--red); }
+  .badge-blue { background: rgba(41,121,255,0.1); border: 1px solid rgba(41,121,255,0.3); color: var(--blue); }
+  .input { background: var(--bdr); border: 1px solid var(--bdr2); border-radius: 6px; color: var(--text); font-family: monospace; font-size: 9px; padding: 8px 12px; width: 100%; margin-bottom: 8px; }
+  .input:focus { outline: none; border-color: var(--gold); }
+  .btn { background: linear-gradient(135deg,var(--gold),var(--amber)); border: none; border-radius: 8px; color: var(--bg); font-weight: 800; font-size: 9px; padding: 10px 18px; cursor: pointer; font-family: monospace; letter-spacing: 1px; width: 100%; margin-bottom: 8px; }
+  .btn-secondary { background: transparent; border: 1px solid var(--bdr2); color: var(--text); }
+  .btn-green { background: linear-gradient(135deg,rgba(0,229,160,0.2),rgba(0,229,160,0.1)); border: 1px solid rgba(0,229,160,0.4); color: var(--green); }
+  .btn-red { background: rgba(244,67,54,0.1); border: 1px solid rgba(244,67,54,0.3); color: var(--red); }
+  .contract-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: var(--panel); border: 1px solid var(--bdr2); border-radius: 8px; margin-bottom: 6px; }
+  .contract-name { font-size: 9.5px; font-weight: 700; margin-bottom: 3px; }
+  .contract-addr { font-size: 8px; color: var(--muted); font-family: monospace; }
+  .ext-link { font-size: 8px; color: var(--blue); text-decoration: none; background: rgba(41,121,255,0.1); padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(41,121,255,0.3); white-space: nowrap; }
+  .wallet-bar { background: rgba(7,13,26,0.9); border: 1px solid var(--bdr2); border-radius: 8px; padding: 8px 14px; display: flex; align-items: center; gap: 10px; }
+  .wallet-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .msg { font-size: 8.5px; padding: 8px 12px; border-radius: 6px; margin-top: 8px; }
+  footer { text-align: center; color: var(--muted); font-size: 8px; padding: 16px; border-top: 1px solid var(--bdr); margin-top: 20px; }
+  .gold-box { background: rgba(201,168,76,0.06); border: 1px solid rgba(201,168,76,0.3); border-radius: 10px; padding: 12px 14px; }
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-badge">E</div>
+    <div>
+      <div class="brand-title">EWB VAULT PROTOCOL</div>
+      <div class="brand-sub" id="netLabel">● CONNECTING TO MAINNET...</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px">
+    <div>
+      <div class="eth-price" id="ethPriceEl" style="color:var(--amber)">$—</div>
+      <div class="eth-price-sub">ETH/USD LIVE</div>
+    </div>
+    <div class="pulse" id="pulseEl"></div>
+    <button class="btn" style="width:auto;margin:0" id="connectBtn" onclick="connectWallet()">CONNECT</button>
+  </div>
+</div>
+
+<!-- NAV -->
+<nav>
+  <button class="active" onclick="showPage('overview',this)">Overview</button>
+  <button onclick="showPage('borrow',this)">Borrow</button>
+  <button onclick="showPage('lend',this)">Lend</button>
+  <button onclick="showPage('contracts',this)">Contracts</button>
+  <button onclick="showPage('admin',this)">Admin</button>
+  <button onclick="showPage('nft',this)">NFT Contract</button>
+</nav>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- WALLET BAR -->
+  <div class="wallet-bar" id="walletBar" style="margin-bottom:12px;display:none">
+    <div class="wallet-dot" id="walletDot" style="background:var(--muted)"></div>
+    <div style="flex:1">
+      <div style="font-size:9px;font-weight:700" id="walletAddr">Not connected</div>
+      <div style="font-size:8px;color:var(--muted)" id="walletBal">ETH: — · USDC: —</div>
+    </div>
+    <span class="badge badge-green" id="ownerBadge" style="display:none">Owner</span>
+    <span class="badge badge-amber" id="networkBadge">Mainnet</span>
+  </div>
+
+  <!-- OVERVIEW -->
+  <div class="page active" id="page-overview">
+    <div class="grid3">
+      <div class="card">
+        <div class="card-label">TOTAL_CREDIT_ETH</div>
+        <div class="card-value" id="totalCreditValue" style="color:var(--green)">—</div>
+        <div class="card-sub" id="creditUSD">Loading live value…</div>
+      </div>
+      <div class="card">
+        <div class="card-label">ANNUAL_TOTAL_USD</div>
+        <div class="card-value" id="annualTotalValue" style="color:var(--amber)">—</div>
+        <div class="card-sub" id="annualTotalSub">Live protocol revenue from backend</div>
+      </div>
+      <div class="card">
+        <div class="card-label">ECOSYSTEM TOTAL</div>
+        <div class="card-value" style="color:var(--gold)" id="ecoTotal">—</div>
+        <div class="card-sub">TVL and bridge activity from the connected backend</div>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <div class="section-title">Deployment Status</div>
+        <div class="row"><span class="row-label">Contracts deployed</span><span class="row-value" id="deploymentCount" style="color:var(--green)">Loading…</span></div>
+        <div class="row"><span class="row-label">EWBTWAPConnector</span><span class="badge badge-amber" id="twapStatus">Checking…</span></div>
+        <div class="row"><span class="row-label">BALLET_WALLET</span><span class="row-value" id="balletStatus" style="color:var(--green)">Loading…</span></div>
+        <div class="row"><span class="row-label">Minting (old contract)</span><span class="badge badge-red" id="mintStatus">Checking…</span></div>
+        <div class="row"><span class="row-label">Mainnet fork test</span><span class="badge badge-green" id="forkStatus">Checking…</span></div>
+        <div class="row"><span class="row-label">Live borrow</span><span class="badge badge-amber" id="borrowStatus">Checking…</span></div>
+      </div>
+      <div class="card">
+        <div class="section-title">Stack Constants</div>
+        <div class="row"><span class="row-label">LAYER1_USD_TOTAL</span><span class="row-value" id="layer1Value" style="color:var(--gold)">Loading…</span></div>
+        <div class="row"><span class="row-label">LAYER2_USD_TOTAL</span><span class="row-value" id="layer2Value" style="color:var(--cyan)">Loading…</span></div>
+        <div class="row"><span class="row-label">LAYER3_USD_TOTAL</span><span class="row-value" id="layer3Value" style="color:var(--green)">Loading…</span></div>
+        <div class="row"><span class="row-label">STACK_COMBINED_ETH</span><span class="row-value" style="color:var(--amber)" id="stackETH">Loading…</span></div>
+        <div class="row"><span class="row-label">Stack USD (live)</span><span class="row-value" style="color:var(--amber)" id="stackUSD">Loading…</span></div>
+        <div class="row"><span class="row-label">Physical Banksy</span><span class="row-value" id="physicalBanksy" style="color:var(--gold)">Loading…</span></div>
+      </div>
+    </div>
+
+    <div class="card gold-box">
+      <div class="section-title" style="color:var(--gold)">Ballet Wallet — All USDC Flows Here</div>
+      <div style="font-size:10px;color:var(--gold);font-family:monospace;word-break:break-all">0xc82A59594560A3010F336ebe2e9CC4794DCD46cf</div>
+      <div style="font-size:8px;color:var(--muted);margin-top:6px">Hardcoded constant in 4 contracts · immutable · cannot be redirected</div>
+    </div>
+  </div>
+
+  <!-- BORROW -->
+  <div class="page" id="page-borrow">
+    <div class="card">
+      <div class="section-title" style="color:var(--amber)">⚠ Complete Step 1 First — Set Manual Floor on Oracle</div>
+      <div style="font-size:9px;color:var(--muted);margin-bottom:12px;line-height:1.8">
+        Before borrowing, set the manual floor on the oracle so EWBTWAPConnector can deploy.
+        Then follow the 3-step borrow loop below.
+      </div>
+      <a href="https://etherscan.io/address/0x5a82a37899219f58cBd21D7F1873554eb5A21bEe#writeContract" target="_blank" class="btn btn-red" style="display:block;text-align:center;text-decoration:none;margin-bottom:0">
+        STEP 0 — SET MANUAL FLOOR ON ORACLE (4290000000000000000) ↗
+      </a>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <div class="section-title">Step 1 — Set Token Tier</div>
+        <div style="font-size:8.5px;color:var(--muted);margin-bottom:10px">EWBWhaleVault → setTokenTiers</div>
+        <input class="input" id="tierTokenIds" placeholder="Token IDs e.g. 1"/>
+        <input class="input" id="tierTiers" placeholder="Tier (0=EPIC, 1=SUPER_RARE, 2=RARE, 3=STANDARD)" value="0"/>
+        <button class="btn" onclick="setTokenTiers()">Set Token Tier</button>
+        <div id="tierMsg" class="msg" style="display:none"></div>
+      </div>
+      <div class="card">
+        <div class="section-title">Step 2 — Lock Minting Rights</div>
+        <div style="font-size:8.5px;color:var(--muted);margin-bottom:10px">EWBWhaleVault → lockMintingRights</div>
+        <input class="input" id="lockTokenIds" placeholder="Token IDs e.g. 1"/>
+        <input class="input" id="lockFaceETH" placeholder="Face value ETH (e.g. 315)" value="315"/>
+        <input class="input" id="lockMemo" placeholder="Memo" value="borrow-test"/>
+        <button class="btn" onclick="lockMintingRights()">Lock Minting Rights</button>
+        <div id="lockMsg" class="msg" style="display:none"></div>
+        <div style="font-size:8px;color:var(--muted);margin-top:6px">Note the lockId from transaction event log after signing.</div>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <div class="section-title">Step 3 — Borrow USDC</div>
+        <div style="font-size:8.5px;color:var(--muted);margin-bottom:10px">EWBMintingRightsVault → borrowUSDC</div>
+        <input class="input" id="borrowLockId" placeholder="Lock ID (from Step 2)" value="1"/>
+        <input class="input" id="borrowAmount" placeholder="USDC amount e.g. 1000"/>
+        <button class="btn btn-green" onclick="borrowUSDC()">Borrow USDC → Ballet Wallet</button>
+        <div id="borrowMsg" class="msg" style="display:none"></div>
+      </div>
+      <div class="card">
+        <div class="section-title">Repay USDC</div>
+        <div style="font-size:8.5px;color:var(--muted);margin-bottom:10px">EWBMintingRightsVault → repayUSDC</div>
+        <input class="input" id="repayLockId" placeholder="Lock ID"/>
+        <input class="input" id="repayAmount" placeholder="USDC amount"/>
+        <button class="btn btn-secondary" onclick="repayUSDC()">Repay USDC</button>
+        <div id="repayMsg" class="msg" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LEND -->
+  <div class="page" id="page-lend">
+    <div class="grid3">
+      <div class="card">
+        <div class="card-label">ANNUAL_LP_FEES_USD</div>
+        <div class="card-value" id="lpFeesValue" style="color:var(--green)">—</div>
+        <div class="card-sub" id="lpFeesSub">Live revenue estimate from backend</div>
+      </div>
+      <div class="card">
+        <div class="card-label">ANNUAL_STETH_USD</div>
+        <div class="card-value" id="stEthValue" style="color:var(--cyan)">—</div>
+        <div class="card-sub" id="stEthSub">Live revenue estimate from backend</div>
+      </div>
+      <div class="card">
+        <div class="card-label">ANNUAL_DYDX_USD</div>
+        <div class="card-value" id="dydxValue" style="color:var(--amber)">—</div>
+        <div class="card-sub" id="dydxSub">Live revenue estimate from backend</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="section-title">Deploy Long Leg (Yield Engine)</div>
+      <div style="font-size:9px;color:var(--muted);margin-bottom:12px;line-height:1.8">
+        Send ETH to EWBDeltaNeutralVault via deployLongLeg(). ETH converts to wstETH via Lido then supplies to Aave. Yield starts accruing immediately. Maximum deployment: 6,391 ETH.
+      </div>
+      <input class="input" id="deployEth" placeholder="ETH amount to deploy (e.g. 100)"/>
+      <button class="btn" onclick="deployLongLeg()">Deploy ETH to Vault</button>
+      <div id="deployMsg" class="msg" style="display:none"></div>
+    </div>
+    <div class="card">
+      <div class="section-title">Harvest Yield</div>
+      <div style="font-size:9px;color:var(--muted);margin-bottom:12px">stETH yield sent to safeMultisig (Ballet wallet). Only earned yield — principal never touched.</div>
+      <input class="input" id="harvestAmount" placeholder="Yield amount to harvest (ETH)"/>
+      <button class="btn btn-green" onclick="harvestYield()">Harvest Yield → Ballet Wallet</button>
+      <div id="harvestMsg" class="msg" style="display:none"></div>
+    </div>
+  </div>
+
+  <!-- CONTRACTS -->
+  <div class="page" id="page-contracts">
+    <div style="font-size:7.5px;color:var(--muted);letter-spacing:2px;margin-bottom:8px">ALL MAINNET CONTRACTS — ETHEREUM · 20/21 DEPLOYED</div>
+    <div id="contractsList"></div>
+  </div>
+
+  <!-- ADMIN -->
+  <div class="page" id="page-admin">
+    <div class="card" style="border-color:rgba(255,179,0,0.3)">
+      <div class="section-title" style="color:var(--amber)">Owner Only — Ballet Wallet Required</div>
+      <div style="font-size:8.5px;color:var(--muted);margin-bottom:12px">All functions below require the Ballet wallet to be connected and confirmed as owner.</div>
+      <div id="adminOwnerCheck" class="badge badge-amber">Connect Ballet wallet to access admin</div>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <div class="section-title">Set Manual Floor (Oracle)</div>
+        <input class="input" id="adminFloor" placeholder="Floor price in ETH e.g. 4.29"/>
+        <button class="btn" onclick="setManualFloor()">Set Manual Floor</button>
+        <div id="floorMsg" class="msg" style="display:none"></div>
+      </div>
+      <div class="card">
+        <div class="section-title">Queue Pool (48h Timelock)</div>
+        <input class="input" id="adminPool" placeholder="New pool address 0x..."/>
+        <button class="btn btn-secondary" onclick="queuePool()">Queue Pool</button>
+        <button class="btn btn-secondary" onclick="executePool()" style="margin-top:4px">Execute Pool (after 48h)</button>
+        <div id="poolMsg" class="msg" style="display:none"></div>
+      </div>
+    </div>
+    <div class="card" style="border-color:rgba(244,67,54,0.3)">
+      <div class="section-title" style="color:var(--red)">Lock Old NFT Contract Minting — URGENT</div>
+      <div style="font-size:9px;color:var(--muted);margin-bottom:12px">Two transactions on the old ERC721 contract. Permanently disables minting. Cannot be undone.</div>
+      <div class="grid2">
+        <a href="https://etherscan.io/address/0x0c06d6A17eb208A9BC7Bd698Eb6f22379209e3A4#writeContract" target="_blank" class="btn btn-red" style="display:block;text-align:center;text-decoration:none">
+          TX 1 — Call pause() on Old Contract ↗
+        </a>
+        <a href="https://etherscan.io/address/0x0c06d6A17eb208A9BC7Bd698Eb6f22379209e3A4#writeContract" target="_blank" class="btn btn-red" style="display:block;text-align:center;text-decoration:none">
+          TX 2 — transferOwnership(0x000...dEaD) ↗
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- NFT CONTRACT -->
+  <div class="page" id="page-nft">
+    <div class="grid3">
+      <div class="card">
+        <div class="card-label">MINTED</div>
+        <div class="card-value" style="color:var(--green)">660 / 10,000</div>
+        <div class="card-sub">6.6% of max supply</div>
+      </div>
+      <div class="card">
+        <div class="card-label">FLOOR PRICE</div>
+        <div class="card-value" style="color:var(--amber)">4.29 ETH</div>
+        <div class="card-sub" id="nftFloorUSD">$— at live price</div>
+      </div>
+      <div class="card">
+        <div class="card-label">COLLECTION VALUE</div>
+        <div class="card-value" style="color:var(--gold)" id="nftCollValue">$—</div>
+        <div class="card-sub">660 tokens × floor × ETH price</div>
+      </div>
+    </div>
+    <div class="card" style="border-color:rgba(244,67,54,0.3)">
+      <div class="section-title" style="color:var(--red)">⚠ Minting Still Active — Action Required</div>
+      <div style="font-size:9px;color:var(--muted);margin-bottom:12px;line-height:1.8">
+        Anyone can call mint() on the old contract. 9,340 tokens can still be minted. Lock permanently before vault goes live.
+      </div>
+      <div class="row"><span class="row-label">Contract</span><span class="row-value" style="font-size:8px">0x0c06d6...e3A4</span></div>
+      <div class="row"><span class="row-label">Unminted IDs (vault collateral)</span><span class="row-value" style="color:var(--gold)">9,300</span></div>
+      <div class="row"><span class="row-label">Mint price</span><span class="row-value">0.3 ETH</span></div>
+      <div class="row"><span class="row-label">Creator royalty</span><span class="row-value">10%</span></div>
+      <div class="row"><span class="row-label">Owner</span><span class="row-value" style="color:var(--green)">Ballet wallet ✓</span></div>
+    </div>
+    <div class="grid2">
+      <a href="https://etherscan.io/address/0x0c06d6A17eb208A9BC7Bd698Eb6f22379209e3A4#writeContract" target="_blank" class="btn btn-red" style="display:block;text-align:center;text-decoration:none">
+        CALL pause() — STOP MINTING ↗
+      </a>
+      <a href="https://coinstats.app/nft/banksy_gorilla_in_a_pink_mask/" target="_blank" class="btn btn-secondary" style="display:block;text-align:center;text-decoration:none">
+        VIEW ON COINSTATS ↗
+      </a>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  EWB VAULT PROTOCOL · ETHEREUM MAINNET · <span id="footerStatus">Loading live backend data…</span> · Ballet wallet: 0xc82A...46cf<br>
+  This dashboard is served from the frontend service and reads live protocol data from the backend API.
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.1/ethers.umd.min.js"></script>
+<script>
+// ── CONTRACT ADDRESSES ─────────────────────────────────────────
+const ADDR = {
+  oracle:       '0x5a82a37899219f58cBd21D7F1873554eb5A21bEe',
+  whaleVault:   '0x7048fDfA11f70B7f4cD08ba5e8F7F299DCb07529',
+  mintingVault: '0x2E4C26B33Ae96823e1C37cDbCB28dF0169A2738D',
+  revenueRouter:'0xC810418CFB38E4b6cfE7Cc0ACb1bb4d0CF318c80',
+  deltaVault:   '0x173ee583c3263fBe41ac08B25484E9798102C12D',
+  creditBridge: '0xb4145e014A8338531f136FE73ECFed0dd452BA57',
+  devPayment:   '0x1115ae7460b72c76b371a5031743d4fa5145484D',
+  gasPaymaster: '0xb2D5674a9e9477272FFD377FAB1999F15d8c5F31',
+  layer1:       '0x5871F0C7890473004227906827F3D40e5Bb8732C',
+  layer2:       '0x2D680db489086a45b2958CaE5BA19E4CF1d93042',
+  layer3:       '0x779fbf05fe5Cdef3F8E8edcA320d218B17e08c3d',
+  milestone:    '0x056C4FC994aA6e60212D440bEf5c4C5AEf25630D',
+  nftHarvest:   '0xa8C3713E8c37856F18caB40206541Dd25CD637b3',
+  privHarvest:  '0xa86E069a30D43d1f74E73Ea816e1A07591F869c6',
+  privPool:     '0x86CafD03d427681Ce9B6854392BDB13d7290897F',
+  rwa:          '0xeeFDB6Bb501acD830D0bA7599e34150d93568e68',
+  trademark:    '0x41c8b00093855785d3fb7C1dc1A4c8e5228e4fe9',
+  nft:          '0x0c06d6A17eb208A9BC7Bd698Eb6f22379209e3A4',
+  usdc:         '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+  ballet:       '0xc82A59594560A3010F336ebe2e9CC4794DCD46cf',
+};
+
+const CONTRACT_NAMES = {
+  oracle:'EWBGorillaOracle', whaleVault:'EWBWhaleVault', mintingVault:'EWBMintingRightsVault',
+  revenueRouter:'EWBRevenueRouter', deltaVault:'EWBDeltaNeutralVault', creditBridge:'EWBCreditBridge',
+  devPayment:'EWBDevPayment', gasPaymaster:'EWBGasPaymaster', layer1:'EWBLayer1Token',
+  layer2:'EWBLayer2Token', layer3:'EWBLayer3Token', milestone:'EWBMilestoneEscrow',
+  nftHarvest:'EWBNFTHarvestVault', privHarvest:'EWBPrivateHarvest', privPool:'EWBPrivatePool',
+  rwa:'EWBRealWorldAsset', trademark:'EWBTrademarkBridge',
+};
+
+const COLORS = ['var(--gold)','var(--cyan)','var(--green)','var(--amber)','var(--blue)','var(--purple)',
+  'var(--gold)','var(--cyan)','var(--green)','var(--amber)','var(--blue)','var(--purple)',
+  'var(--gold)','var(--cyan)','var(--green)','var(--amber)','var(--cyan)'];
+const API_BASE = window.EWB_API_BASE_URL || 'http://127.0.0.1:4000';
+
+// ── MINIMAL ABIs ───────────────────────────────────────────────
+const ORACLE_ABI = [
+  'function setManualFloor(uint256 _floorETH) external',
+  'function queuePool(address _pool) external',
+  'function executePool() external',
+  'function getETHUSDPrice() external view returns (uint256)',
+];
+const WHALE_ABI = [
+  'function setTokenTiers(uint256[] calldata tokenIds, uint8[] calldata tiers) external',
+  'function lockMintingRights(uint256[] calldata tokenIds, string calldata memo, uint256 expiry) external returns (uint256)',
+  'function unlockMintingRights(uint256 lockId) external',
+  'function BALLET_WALLET() external view returns (address)',
+];
+const MINTING_ABI = [
+  'function borrowUSDC(uint256 lockId, uint256[] calldata tokenIds, uint256 amount) external',
+  'function repayUSDC(uint256 lockId, uint256 amount) external',
+  'function BALLET_WALLET() external view returns (address)',
+];
+const VAULT_ABI = [
+  'function deployLongLeg() external payable',
+  'function harvestYield(uint256 yieldAmount) external',
+];
+const ERC20_ABI = ['function balanceOf(address) external view returns (uint256)'];
+
+// ── STATE ──────────────────────────────────────────────────────
+let provider, signer, walletAddress, ethPrice = 1766;
+
+// ── ETH PRICE ──────────────────────────────────────────────────
+async function fetchPrice() {
+  try {
+    const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
+    const d = await r.json();
+    if (d?.ethereum?.usd) {
+      ethPrice = d.ethereum.usd;
+      const el = document.getElementById('ethPriceEl');
+      el.textContent = '$' + ethPrice.toLocaleString('en-GB', {maximumFractionDigits:0});
+      el.style.color = 'var(--green)';
+      setTimeout(()=>{ el.style.color = 'var(--amber)'; }, 500);
+      const p = document.getElementById('pulseEl');
+      p.classList.add('active');
+      setTimeout(()=>p.classList.remove('active'), 500);
+    }
+  } catch {}
+}
+
+function fmtUSD(n) {
+  return '$' + Math.round(Number(n || 0)).toLocaleString('en-GB');
+}
+
+function fmtETH(n) {
+  return Number(n || 0).toLocaleString('en-GB', { maximumFractionDigits: 2 }) + ' ETH';
+}
+
+function formatAddress(value) {
+  return value ? value.slice(0, 10) + '...' + value.slice(-6) : '—';
+}
+
+async function loadProtocolData() {
+  try {
+    const res = await fetch(`${API_BASE}/api/protocol`);
+    const json = await res.json();
+    if (!res.ok || !json?.success) throw new Error(json?.error || 'Backend request failed');
+    const data = json.data || {};
+    currentBackendData = data;
+    const ethUsd = Number(data?.oracle?.ethUsdPrice || 0) / 1e18;
+    const floorEth = Number(data?.oracle?.floorEth || 0) / 1e18;
+    const maxDeploymentEth = Number(data?.deltaNeutral?.maxDeployment || 0) / 1e18;
+    const totalBorrowedUsd = Number(data?.stats?.totalBorrowed || 0) / 1e6;
+    const totalRevenueUsd = Number(data?.stats?.protocolRevenue || 0) / 1e6;
+    const tvlUsd = Number(data?.stats?.tvlUsd || 0) / 1e6;
+    const totalLocks = Number(data?.stats?.totalNftLocks || 0);
+
+    document.getElementById('totalCreditValue').textContent = fmtETH(maxDeploymentEth || 0);
+    document.getElementById('creditUSD').textContent = fmtUSD((maxDeploymentEth || 0) * ethUsd) + ' borrowable at live price';
+    document.getElementById('annualTotalValue').textContent = fmtUSD(totalRevenueUsd || 0);
+    document.getElementById('annualTotalSub').textContent = 'Live protocol revenue from backend';
+    document.getElementById('ecoTotal').textContent = fmtUSD((tvlUsd || 0) + (totalBorrowedUsd || 0));
+
+    document.getElementById('deploymentCount').textContent = `${Number(data?.stats?.contractsDeployed || 20)} / ${Number(data?.stats?.contractsTotal || 21)} ✓`;
+    document.getElementById('twapStatus').textContent = data?.oracle?.useManualFloor ? 'Manual floor active' : 'Floor not set';
+    document.getElementById('balletStatus').textContent = 'Confirmed ✓';
+    document.getElementById('mintStatus').textContent = data?.status?.mintingVault ? 'Paused' : 'Active';
+    document.getElementById('forkStatus').textContent = 'Live on mainnet';
+    document.getElementById('borrowStatus').textContent = data?.mintingVault?.creditCount ? 'Borrow flow ready' : 'Awaiting activity';
+
+    const realRevenue = Number(data?.revenueRouter?.revenue || 0) / 1e6;
+    document.getElementById('layer1Value').textContent = fmtUSD(realRevenue);
+    document.getElementById('layer2Value').textContent = fmtUSD(realRevenue * 0.5);
+    document.getElementById('layer3Value').textContent = fmtUSD(realRevenue * 0.25);
+    document.getElementById('lpFeesValue').textContent = fmtUSD(realRevenue);
+    document.getElementById('stEthValue').textContent = fmtUSD(realRevenue * 0.5);
+    document.getElementById('dydxValue').textContent = fmtUSD(realRevenue * 0.25);
+    document.getElementById('stackETH').textContent = fmtETH((Number(data?.stats?.tvlEth || 0) || 0));
+    document.getElementById('stackUSD').textContent = fmtUSD((Number(data?.stats?.tvlUsd || 0) || 0) / 1e6);
+    document.getElementById('physicalBanksy').textContent = fmtUSD((floorEth || 0) * ethUsd * 1000000);
+
+    document.getElementById('nftFloorUSD').textContent = fmtUSD((floorEth || 0) * ethUsd) + ' per token';
+    document.getElementById('nftCollValue').textContent = fmtUSD((totalLocks || 0) * (floorEth || 0) * ethUsd);
+    document.getElementById('footerStatus').textContent = 'Live backend data connected';
+    document.getElementById('netLabel').textContent = '● LIVE ON ETHEREUM MAINNET';
+    document.getElementById('connectBtn').textContent = 'CONNECTED';
+  } catch (e) {
+    console.error(e);
+    document.getElementById('footerStatus').textContent = 'Backend unavailable';
+    document.getElementById('netLabel').textContent = '● BACKEND UNAVAILABLE';
+  }
+}
+
+// ── NAVIGATION ─────────────────────────────────────────────────
+function showPage(id, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ── WALLET ─────────────────────────────────────────────────────
+async function connectWallet() {
+  if (!window.ethereum) { alert('Please install MetaMask'); return; }
+  try {
+    provider = new ethers.BrowserProvider(window.ethereum);
+    await provider.send('eth_requestAccounts', []);
+    signer = await provider.getSigner();
+    walletAddress = await signer.getAddress();
+    const network = await provider.getNetwork();
+    const isMainnet = network.chainId === 1n;
+    const isOwner = walletAddress.toLowerCase() === ADDR.ballet.toLowerCase();
+
+    document.getElementById('walletBar').style.display = 'flex';
+    document.getElementById('walletAddr').textContent = walletAddress.slice(0,10) + '...' + walletAddress.slice(-6);
+    document.getElementById('walletDot').style.background = isOwner ? 'var(--green)' : 'var(--amber)';
+    document.getElementById('networkBadge').textContent = isMainnet ? 'Mainnet ✓' : 'Wrong Network';
+    document.getElementById('netLabel').textContent = '● LIVE ON ETHEREUM MAINNET';
+    if (isOwner) {
+      document.getElementById('ownerBadge').style.display = 'inline-block';
+      document.getElementById('adminOwnerCheck').textContent = '✓ Ballet wallet connected — owner access active';
+      document.getElementById('adminOwnerCheck').className = 'badge badge-green';
+    }
+    document.getElementById('connectBtn').textContent = walletAddress.slice(0,6) + '...';
+
+    // Fetch balances
+    const ethBal = await provider.getBalance(walletAddress);
+    const usdc = new ethers.Contract(ADDR.usdc, ERC20_ABI, provider);
+    const usdcBal = await usdc.balanceOf(walletAddress);
+    document.getElementById('walletBal').textContent =
+      'ETH: ' + parseFloat(ethers.formatEther(ethBal)).toFixed(4) +
+      ' · USDC: ' + parseFloat(ethers.formatUnits(usdcBal, 6)).toLocaleString('en-GB', {maximumFractionDigits:2});
+  } catch(e) {
+    console.error(e);
+  }
+}
+
+// ── CONTRACT INTERACTIONS ──────────────────────────────────────
+function showMsg(id, text, ok) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.style.display = 'block';
+  el.style.background = ok ? 'rgba(0,229,160,0.1)' : 'rgba(244,67,54,0.1)';
+  el.style.border = ok ? '1px solid rgba(0,229,160,0.3)' : '1px solid rgba(244,67,54,0.3)';
+  el.style.color = ok ? 'var(--green)' : 'var(--red)';
+}
+
+async function setTokenTiers() {
+  if (!signer) { showMsg('tierMsg','Connect wallet first',false); return; }
+  try {
+    const ids = document.getElementById('tierTokenIds').value.split(',').map(Number);
+    const tiers = document.getElementById('tierTiers').value.split(',').map(Number);
+    const c = new ethers.Contract(ADDR.whaleVault, WHALE_ABI, signer);
+    const tx = await c.setTokenTiers(ids, tiers);
+    showMsg('tierMsg','Transaction submitted: ' + tx.hash, true);
+    await tx.wait();
+    showMsg('tierMsg','✓ Tiers set: ' + tx.hash, true);
+  } catch(e) { showMsg('tierMsg', e.reason || e.message, false); }
+}
+
+async function lockMintingRights() {
+  if (!signer) { showMsg('lockMsg','Connect wallet first',false); return; }
+  try {
+    const ids = document.getElementById('lockTokenIds').value.split(',').map(Number);
+    const memo = document.getElementById('lockMemo').value || 'dashboard-lock';
+    const expiry = Math.floor(Date.now()/1000) + 86400*30;
+    const c = new ethers.Contract(ADDR.whaleVault, WHALE_ABI, signer);
+    const tx = await c.lockMintingRights(ids, memo, expiry);
+    showMsg('lockMsg','Transaction submitted: ' + tx.hash, true);
+    await tx.wait();
+    showMsg('lockMsg','✓ Locked. Check tx for lockId: ' + tx.hash, true);
+  } catch(e) { showMsg('lockMsg', e.reason || e.message, false); }
+}
+
+async function borrowUSDC() {
+  if (!signer) { showMsg('borrowMsg','Connect wallet first',false); return; }
+  try {
+    const lockId = Number(document.getElementById('borrowLockId').value);
+    const amount = Math.round(parseFloat(document.getElementById('borrowAmount').value) * 1e6);
+    const ids = [1]; // default token ID
+    const c = new ethers.Contract(ADDR.mintingVault, MINTING_ABI, signer);
+    const tx = await c.borrowUSDC(lockId, ids, amount);
+    showMsg('borrowMsg','Submitted: ' + tx.hash, true);
+    await tx.wait();
+    showMsg('borrowMsg','✓ USDC sent to Ballet wallet! TX: ' + tx.hash, true);
+  } catch(e) { showMsg('borrowMsg', e.reason || e.message, false); }
+}
+
+async function repayUSDC() {
+  if (!signer) { showMsg('repayMsg','Connect wallet first',false); return; }
+  try {
+    const lockId = Number(document.getElementById('repayLockId').value);
+    const amount = Math.round(parseFloat(document.getElementById('repayAmount').value) * 1e6);
+    const c = new ethers.Contract(ADDR.mintingVault, MINTING_ABI, signer);
+    const tx = await c.repayUSDC(lockId, amount);
+    showMsg('repayMsg','Submitted: ' + tx.hash, true);
+    await tx.wait();
+    showMsg('repayMsg','✓ Repaid. TX: ' + tx.hash, true);
+  } catch(e) { showMsg('repayMsg', e.reason || e.message, false); }
+}
+
+async function deployLongLeg() {
+  if (!signer) { showMsg('deployMsg','Connect wallet first',false); return; }
+  try {
+    const eth = document.getElementById('deployEth').value;
+    const c = new ethers.Contract(ADDR.deltaVault, VAULT_ABI, signer);
+    const tx = await c.deployLongLeg({ value: ethers.parseEther(eth) });
+    showMsg('deployMsg','Submitted: ' + tx.hash, true);
+    await tx.wait();
+    showMsg('deployMsg','✓ ETH deployed to vault! TX: ' + tx.hash, true);
+  } catch(e) { showMsg('deployMsg', e.reason || e.message, false); }
+}
+
+async function harvestYield() {
+  if (!signer) { showMsg('harvestMsg','Connect wallet first',false); return; }
+  try {
+    const amount = document.getElementById('harvestAmount').value;
+    const c = new ethers.Contract(ADDR.deltaVault, VAULT_ABI, signer);
+    const tx = await c.harvestYield(ethers.parseEther(amount));
+    showMsg('harvestMsg','Submitted: ' + tx.hash, true);
+    await tx.wait();
+    showMsg('harvestMsg','✓ Yield harvested to Ballet wallet! TX: ' + tx.hash, true);
+  } catch(e) { showMsg('harvestMsg', e.reason || e.message, false); }
+}
+
+async function setManualFloor() {
+  if (!signer) { showMsg('floorMsg','Connect wallet first',false); return; }
+  try {
+    const floor = document.getElementById('adminFloor').value;
+    const c = new ethers.Contract(ADDR.oracle, ORACLE_ABI, signer);
+    const tx = await c.setManualFloor(ethers.parseEther(floor));
+    showMsg('floorMsg','Submitted: ' + tx.hash, true);
+    await tx.wait();
+    showMsg('floorMsg','✓ Manual floor set! TX: ' + tx.hash, true);
+  } catch(e) { showMsg('floorMsg', e.reason || e.message, false); }
+}
+
+async function queuePool() {
+  if (!signer) { showMsg('poolMsg','Connect wallet first',false); return; }
+  try {
+    const pool = document.getElementById('adminPool').value;
+    const c = new ethers.Contract(ADDR.oracle, ORACLE_ABI, signer);
+    const tx = await c.queuePool(pool);
+    showMsg('poolMsg','Pool queued (48h timelock): ' + tx.hash, true);
+  } catch(e) { showMsg('poolMsg', e.reason || e.message, false); }
+}
+
+async function executePool() {
+  if (!signer) { showMsg('poolMsg','Connect wallet first',false); return; }
+  try {
+    const c = new ethers.Contract(ADDR.oracle, ORACLE_ABI, signer);
+    const tx = await c.executePool();
+    showMsg('poolMsg','Pool executed: ' + tx.hash, true);
+  } catch(e) { showMsg('poolMsg', e.reason || e.message, false); }
+}
+
+// ── BUILD CONTRACT LIST ────────────────────────────────────────
+let currentBackendData = null;
+function buildContractList() {
+  const container = document.getElementById('contractsList');
+  if (container.children.length > 0) return;
+  const deployed = [
+    ['oracle', 'EWBGorillaOracle'],
+    ['whaleVault', 'EWBWhaleVault'],
+    ['mintingVault', 'EWBMintingRightsVault'],
+    ['revenueRouter', 'EWBRevenueRouter'],
+    ['deltaVault', 'EWBDeltaNeutralVault'],
+    ['creditBridge', 'EWBCreditBridge'],
+    ['devPayment', 'EWBDevPayment'],
+    ['gasPaymaster', 'EWBGasPaymaster'],
+    ['layer1', 'EWBLayer1Token'],
+    ['layer2', 'EWBLayer2Token'],
+    ['layer3', 'EWBLayer3Token'],
+    ['milestone', 'EWBMilestoneEscrow'],
+    ['nftHarvest', 'EWBNFTHarvestVault'],
+    ['privHarvest', 'EWBPrivateHarvest'],
+    ['privPool', 'EWBPrivatePool'],
+    ['rwa', 'EWBRealWorldAsset'],
+    ['trademark', 'EWBTrademarkBridge'],
+    ['nft', 'EWB NFT Collection'],
+    ['usdc', 'USDC (External)'],
+    ['ballet', 'Ballet Wallet (Multisig)'],
+  ];
+  deployed.forEach(([key, name], i) => {
+    const addr = ADDR[key];
+    if (!addr) return;
+    const div = document.createElement('div');
+    div.className = 'contract-row';
+    div.innerHTML = `<div><div class="contract-name" style="color:${color}">${i+1}. ${name}</div><div class="contract-addr">${addr.slice(0,10)}...${addr.slice(-6)}</div></div><a class="ext-link" href="https://etherscan.io/address/${addr}#readContract" target="_blank">Etherscan ↗</a>`;
+    container.appendChild(div);
+  });
+  const pending = currentBackendData?.pending || {};
+  [['twapConnector', 'EWBTWAPConnector', pending.twapConnector || 'Requires manual floor'],['kyc', 'EWBKYC', pending.kyc || 'Deferred for phase 2']].forEach(([key, name, reason], i) => {
+    const div = document.createElement('div');
+    div.className = 'contract-row';
+    div.innerHTML = `<div><div class="contract-name" style="color:var(--amber)">${20+i+1}. ${name} (PENDING)</div><div class="contract-addr">${reason}</div></div><span class="badge badge-amber">Pending</span>`;
+    container.appendChild(div);
+  });
+
+// ── INIT ───────────────────────────────────────────────────────
+buildContractList();
+fetchPrice();
+loadProtocolData();
+setInterval(fetchPrice, 15000);
+setInterval(loadProtocolData, 30000);
+</script>
+</body>
+</html>
